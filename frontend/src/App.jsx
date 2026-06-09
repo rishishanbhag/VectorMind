@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  API_BASE_URL,
   createConversation,
   getConversations,
   getStatus,
@@ -11,6 +12,13 @@ import './App.css';
 
 function BrandMark() {
   return <div className="brand-mark">PC</div>;
+}
+
+function backendErrorHint() {
+  if (import.meta.env.DEV) {
+    return 'Make sure the FastAPI backend is running on port 8000.';
+  }
+  return `Check that the API is reachable at ${API_BASE_URL} and that CORS_ORIGINS includes this site.`;
 }
 
 const STEPS = [
@@ -107,7 +115,7 @@ function App() {
 
           {statusError && (
             <p className="message error landing-error">
-              Cannot reach backend: {statusError}. Make sure FastAPI is running on port 8000.
+              Cannot reach backend: {statusError}. {backendErrorHint()}
             </p>
           )}
 
@@ -155,7 +163,7 @@ function App() {
 
       {statusError && (
         <div className="banner error">
-          Cannot reach backend: {statusError}. Make sure FastAPI is running on port 8000.
+          Cannot reach backend: {statusError}. {backendErrorHint()}
         </div>
       )}
 

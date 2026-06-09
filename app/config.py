@@ -45,7 +45,17 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
+    # Memory tuning for constrained hosts (e.g. Render free tier, 512MB RAM).
+    # LOW_MEMORY_MODE unloads ML models after each operation to cap peak RAM.
+    # ENABLE_RERANKER=false skips the cross-encoder (~80MB) — retrieval still works.
+    low_memory_mode: bool = False
+    enable_reranker: bool = True
+
     enable_ocr: bool = True
+
+    @property
+    def use_reranker(self) -> bool:
+        return self.enable_reranker
 
     @property
     def cors_origin_list(self) -> List[str]:

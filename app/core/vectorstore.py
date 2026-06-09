@@ -63,10 +63,20 @@ def _retry_qdrant(operation: Callable[[], T], description: str) -> T:
 
 
 def get_vectorstore_stats(user_id: int) -> tuple[int, str | None]:
-    """Return document count and optional error without raising."""
+    """Return document count and optional error without loading ML models."""
+    settings = get_settings()
+    collection_name = f"{settings.qdrant_collection_prefix}_user_{user_id}"
     try:
-        store = QdrantVectorStore(user_id)
-        return store.count(), None
+        client = _get_qdrant_client()
+
+        def _count():
+            collections = [c.name for c in client.get_collections().collections]
+            if collection_name not in collections:
+                return 0
+            info = client.get_collection(collection_name)
+            return info.points_count or 0
+
+        return _retry_qdrant(_count, "count"), None
     except Exception as e:
         logger.warning("Qdrant unavailable for user %s: %s", user_id, e)
         return 0, str(e)
@@ -78,8 +88,14 @@ class QdrantVectorStore:
         self.user_id = user_id
         self.collection_name = f"{settings.qdrant_collection_prefix}_user_{user_id}"
         self.client = _get_qdrant_client()
-        self.embeddings = get_embedding_model()
+        self._embeddings = None
         self._ensure_collection()
+
+    @property
+    def embeddings(self):
+        if self._embeddings is None:
+            self._embeddings = get_embedding_model()
+        return self._embeddings
 
     def _ensure_collection(self):
         def _ensure():

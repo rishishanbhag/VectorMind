@@ -1,6 +1,6 @@
+import gc
 import json
 import logging
-from functools import lru_cache
 from typing import AsyncGenerator, List, Optional
 
 from langchain.memory import ConversationBufferMemory
@@ -11,6 +11,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.config import get_settings
 from app.core.cache import get_cached_answer, set_cached_answer
+from app.core.embeddings import unload_embedding_model
 from app.core.vectorstore import get_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -34,26 +35,56 @@ Formatting rules (strict):
 _user_memories: dict[int, ConversationBufferMemory] = {}
 
 
-@lru_cache(maxsize=1)
-def _get_reranker():
-    try:
-        from sentence_transformers import CrossEncoder
+_reranker = None
+_reranker_unavailable = False
 
-        return CrossEncoder(settings.reranker_model)
-    except Exception as e:
-        logger.warning("Reranker unavailable: %s", e)
+
+def _get_reranker():
+    global _reranker, _reranker_unavailable
+    if not settings.use_reranker:
         return None
+    if _reranker_unavailable:
+        return None
+    if _reranker is None:
+        try:
+            from sentence_transformers import CrossEncoder
+
+            logger.info("Loading reranker model: %s", settings.reranker_model)
+            _reranker = CrossEncoder(settings.reranker_model)
+        except Exception as e:
+            logger.warning("Reranker unavailable: %s", e)
+            _reranker_unavailable = True
+            return None
+    return _reranker
+
+
+def unload_reranker() -> None:
+    """Release reranker from RAM (used in low-memory mode)."""
+    global _reranker
+    if _reranker is not None:
+        logger.info("Unloading reranker model")
+        del _reranker
+        _reranker = None
+        gc.collect()
 
 
 def rerank_documents(query: str, documents: List[Document], top_k: int) -> List[Document]:
+    if not settings.use_reranker or not documents:
+        return documents[:top_k]
+
     reranker = _get_reranker()
-    if reranker is None or not documents:
+    if reranker is None:
         return documents[:top_k]
 
     pairs = [[query, doc.page_content] for doc in documents]
     scores = reranker.predict(pairs)
     ranked = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
-    return [doc for doc, _ in ranked[:top_k]]
+    result = [doc for doc, _ in ranked[:top_k]]
+
+    if settings.low_memory_mode:
+        unload_reranker()
+
+    return result
 
 
 def chunk_documents(pages: list, filename: str) -> List[Document]:
@@ -127,6 +158,10 @@ def retrieve_context(user_id: int, question: str) -> tuple[List[Document], List[
         raise ValueError("No documents indexed. Please upload PDFs first.")
 
     candidates = store.similarity_search(question, k=settings.retrieval_top_k)
+
+    if settings.low_memory_mode:
+        unload_embedding_model()
+
     reranked = rerank_documents(question, candidates, settings.rerank_top_k)
     return reranked, candidates
 
@@ -222,4 +257,7 @@ async def ask_question_stream(
 
 def index_documents(user_id: int, documents: List[Document]) -> int:
     store = get_vectorstore(user_id)
-    return store.add_documents(documents)
+    count = store.add_documents(documents)
+    if settings.low_memory_mode:
+        unload_embedding_model()
+    return count

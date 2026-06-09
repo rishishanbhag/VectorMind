@@ -10,6 +10,8 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-for-unit-tests")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("QDRANT_URL", "http://localhost:6333")
+os.environ.setdefault("ENABLE_RERANKER", "false")
+os.environ.setdefault("LOW_MEMORY_MODE", "true")
 
 from app.database import Base, get_db
 from app.main import create_app
