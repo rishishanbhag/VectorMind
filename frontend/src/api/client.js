@@ -1,4 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const configuredApiUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '');
+
+const API_BASE_URL =
+  configuredApiUrl || (import.meta.env.DEV ? 'http://localhost:8000' : '');
+
+export const isApiConfigured = Boolean(API_BASE_URL);
 const SESSION_KEY = 'session_id';
 
 function getSessionId() {
@@ -26,7 +31,16 @@ async function handleResponse(response) {
   return data;
 }
 
+function ensureApiConfigured() {
+  if (!API_BASE_URL) {
+    throw new Error(
+      'VITE_API_BASE_URL is not set. Add it in Vercel → Settings → Environment Variables, then redeploy.',
+    );
+  }
+}
+
 export async function getStatus() {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/status`, {
     headers: sessionHeaders(),
   });
@@ -34,6 +48,7 @@ export async function getStatus() {
 }
 
 export async function uploadPdfs(files) {
+  ensureApiConfigured();
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
 
@@ -46,6 +61,7 @@ export async function uploadPdfs(files) {
 }
 
 export async function getUploadStatus(taskId) {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/upload/status/${taskId}`, {
     headers: sessionHeaders(),
   });
@@ -64,6 +80,7 @@ export async function pollUploadUntilComplete(taskId, { intervalMs = 2000, maxAt
 }
 
 export async function sendChatMessage(question, conversationId = null) {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
     headers: sessionHeaders({ 'Content-Type': 'application/json' }),
@@ -76,6 +93,7 @@ export async function sendChatMessage(question, conversationId = null) {
 }
 
 export async function streamChatMessage(question, conversationId, onToken, onDone) {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/chat/stream`, {
     method: 'POST',
     headers: sessionHeaders({ 'Content-Type': 'application/json' }),
@@ -112,6 +130,7 @@ export async function streamChatMessage(question, conversationId, onToken, onDon
 }
 
 export async function getConversations() {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/conversations`, {
     headers: sessionHeaders(),
   });
@@ -119,6 +138,7 @@ export async function getConversations() {
 }
 
 export async function createConversation(title = 'New conversation') {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/conversations`, {
     method: 'POST',
     headers: sessionHeaders({ 'Content-Type': 'application/json' }),
@@ -128,6 +148,7 @@ export async function createConversation(title = 'New conversation') {
 }
 
 export async function getConversationMessages(conversationId) {
+  ensureApiConfigured();
   const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
     headers: sessionHeaders(),
   });

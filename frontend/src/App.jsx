@@ -4,6 +4,7 @@ import {
   createConversation,
   getConversations,
   getStatus,
+  isApiConfigured,
 } from './api/client';
 import PdfUpload from './components/PdfUpload';
 import ChatInterface from './components/ChatInterface';
@@ -15,10 +16,13 @@ function BrandMark() {
 }
 
 function backendErrorHint() {
+  if (!isApiConfigured) {
+    return 'Set VITE_API_BASE_URL in Vercel → Environment Variables to your Render URL, then redeploy.';
+  }
   if (import.meta.env.DEV) {
     return 'Make sure the FastAPI backend is running on port 8000.';
   }
-  return `Check that the API is reachable at ${API_BASE_URL} and that CORS_ORIGINS includes this site.`;
+  return `API: ${API_BASE_URL}. If requests fail, check Render is live and CORS allows ${window.location.origin}.`;
 }
 
 const STEPS = [
