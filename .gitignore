@@ -1,9 +1,48 @@
 # Ignore virtual environment
+
 .venv/
 
+
+
 # Ignore environment variable file (if sensitive info is included)
+
 .env
 
+
+
 # Python cache files
+
 __pycache__/
+
 *.py[cod]
+
+
+
+# Generated vector store
+
+vectorstore.pkl
+
+vectorstores/
+
+
+
+# Database
+
+*.db
+
+data/
+
+
+
+# Node
+
+node_modules/
+
+frontend/dist/
+
+
+
+# IDE
+
+.cursor/
+
