@@ -26,9 +26,15 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
   };
 
   const handleFileChange = (event) => {
+    if (disabled || uploading) return;
+
     const files = filterPdfFiles(event.target.files);
+    if (!files.length && event.target.files?.length) {
+      setError('Please select PDF files only.');
+      return;
+    }
     setFiles(files);
-    if (autoUpload && files.length) {
+    if ((autoUpload || isHero) && files.length) {
       handleUpload(files);
     }
   };
@@ -142,7 +148,20 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
         </button>
       )}
 
-      {uploading && isHero && <p className="message info hero-progress">{progress}</p>}
+      {isHero && selectedFiles.length > 0 && !uploading && (
+        <button
+          type="button"
+          className="btn primary hero-upload-btn"
+          onClick={() => handleUpload()}
+          disabled={disabled || uploading}
+        >
+          Process {selectedFiles.length} file(s)
+        </button>
+      )}
+
+      {(uploading || progress) && isHero && (
+        <p className="message info hero-progress">{progress || 'Processing…'}</p>
+      )}
       {!isHero && progress && <p className="message info">{progress}</p>}
       {error && <p className="message error">{error}</p>}
       {lastResult?.status === 'completed' && !isHero && (

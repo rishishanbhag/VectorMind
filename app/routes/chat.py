@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.session import get_session_user
 from app.config import get_settings
 from app.core.rag import ask_question, ask_question_stream
-from app.core.vectorstore import get_vectorstore
+from app.core.vectorstore import get_vectorstore, get_vectorstore_stats
 from app.database import get_db
 from app.models import User
 from app.routes.conversations import get_or_create_conversation, save_message
@@ -108,10 +108,12 @@ async def chat_stream_endpoint(
 
 @router.get("/status")
 async def get_status(current_user: User = Depends(get_session_user)):
-    store = get_vectorstore(current_user.id)
+    doc_count, qdrant_error = get_vectorstore_stats(current_user.id)
     return {
-        "vectorstore_loaded": store.count() > 0,
-        "document_count": store.count(),
+        "vectorstore_loaded": doc_count > 0,
+        "document_count": doc_count,
         "anthropic_api_configured": bool(settings.anthropic_api_key),
+        "qdrant_connected": qdrant_error is None,
+        "qdrant_error": qdrant_error,
         "user_id": current_user.id,
     }

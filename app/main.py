@@ -52,8 +52,25 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup():
+        import os
+
         init_db()
         logger.info("app_started", cors=settings.cors_origin_list)
+
+        if os.getenv("RENDER") and "localhost" in settings.qdrant_url:
+            logger.error(
+                "qdrant_config_invalid",
+                detail="QDRANT_URL cannot use localhost on Render. Set your Qdrant Cloud URL.",
+            )
+
+        if settings.qdrant_api_key and "cloud.qdrant.io" in settings.qdrant_url:
+            try:
+                from app.core.vectorstore import _get_qdrant_client
+
+                _get_qdrant_client().get_collections()
+                logger.info("qdrant_startup_ok", url=settings.qdrant_url.split("://")[-1][:40])
+            except Exception as e:
+                logger.error("qdrant_startup_failed", error=str(e))
 
     @app.get("/")
     async def root():

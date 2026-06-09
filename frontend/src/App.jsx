@@ -101,13 +101,19 @@ function App() {
             <PdfUpload
               variant="hero"
               onUploadComplete={handleUploadComplete}
-              disabled={!!statusError}
+              disabled={!!statusError || !!status?.qdrant_error}
             />
           </section>
 
           {statusError && (
             <p className="message error landing-error">
               Cannot reach backend: {statusError}. Make sure FastAPI is running on port 8000.
+            </p>
+          )}
+
+          {!statusError && status?.qdrant_error && (
+            <p className="message error landing-error">
+              Cannot reach Qdrant: {status.qdrant_error}. Check QDRANT_URL and your network, then restart the backend.
             </p>
           )}
 
