@@ -3,8 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
-    HF_HOME=/app/.cache/huggingface \
-    TRANSFORMERS_CACHE=/app/.cache/huggingface
+    HF_HOME=/app/.cache/huggingface
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
