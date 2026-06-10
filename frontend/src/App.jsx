@@ -87,7 +87,7 @@ function App() {
         <header className="landing-header">
           <div className="brand">
             <BrandMark />
-            <span className="brand-name">PDF Chat</span>
+            <span className="brand-name">VectorMind</span>
           </div>
         </header>
 
@@ -101,7 +101,7 @@ function App() {
             </p>
             <p className="local-notice">
               This app runs locally on your machine and cannot be hosted online. Start both the
-              backend and frontend servers to begin — see run_locally.txt in the project root.
+              backend and frontend servers to begin - see run_locally.txt in the project root.
             </p>
           </section>
 
@@ -140,7 +140,7 @@ function App() {
         </main>
 
         <footer className="landing-footer">
-          <span>PDF Chat · Document Q&amp;A powered by RAG</span>
+          <span>VectorMind · Document Q&amp;A powered by RAG</span>
         </footer>
       </div>
     );
@@ -152,7 +152,7 @@ function App() {
         <div className="brand">
           <BrandMark />
           <div>
-            <h1>PDF Chat</h1>
+            <h1>VectorMind</h1>
             <p className="subtitle">Upload documents and ask questions powered by RAG.</p>
           </div>
         </div>

@@ -30,7 +30,7 @@ This README is the full technical reference: architecture, RAG pipeline and clie
 
 ## Overview
 
-PDF Chat is a **Retrieval-Augmented Generation (RAG)** application. Users upload PDF documents; the system extracts text, splits it into chunks, embeds them into a vector database, and answers questions by retrieving the most relevant passages and passing them to **Anthropic Claude** as context.
+VectorMind is a **Retrieval-Augmented Generation (RAG)** application. Users upload PDF documents; the system extracts text, splits it into chunks, embeds them into a vector database, and answers questions by retrieving the most relevant passages and passing them to **Anthropic Claude** as context.
 
 **Problem it solves:** General-purpose LLMs do not know your private documents. RAG lets you query proprietary PDFs without retraining a model — upload new files and the knowledge base updates immediately.
 

@@ -18,7 +18,7 @@ def test_health(client):
 def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "PDF Chatbot API" in response.json()["message"]
+    assert "VectorMindbot API" in response.json()["message"]
 
 
 def test_status_without_session(client):

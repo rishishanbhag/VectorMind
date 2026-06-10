@@ -29,7 +29,7 @@ logger = structlog.get_logger()
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="PDF Chat API", version="2.0.0")
+    app = FastAPI(title="VectorMind API", version="2.0.0")
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root():
         return {
-            "message": "PDF Chatbot API v2",
+            "message": "VectorMindbot API v2",
             "endpoints": {
                 "health": "GET /health",
                 "upload": "POST /upload (async, returns task_id)",
