@@ -1,10 +1,8 @@
 import gc
 import json
 import logging
-from typing import AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 
-from langchain.memory import ConversationBufferMemory
-from langchain_anthropic import ChatAnthropic
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -32,7 +30,7 @@ Formatting rules (strict):
 - Do not start with phrases like "Based on the provided context" unless the context is genuinely insufficient."""
 
 # Per-user conversation memory (in-memory; history persisted in DB separately)
-_user_memories: dict[int, ConversationBufferMemory] = {}
+_user_memories: dict[int, Any] = {}
 
 
 _reranker = None
@@ -110,7 +108,9 @@ def chunk_documents(pages: list, filename: str) -> List[Document]:
     return documents
 
 
-def get_llm(streaming: bool = False) -> ChatAnthropic:
+def get_llm(streaming: bool = False):
+    from langchain_anthropic import ChatAnthropic
+
     return ChatAnthropic(
         model=settings.claude_model,
         temperature=settings.claude_temperature,
@@ -144,7 +144,9 @@ def _format_sources(documents: List[Document]) -> List[dict]:
     ]
 
 
-def _get_memory(user_id: int) -> ConversationBufferMemory:
+def _get_memory(user_id: int):
+    from langchain.memory import ConversationBufferMemory
+
     if user_id not in _user_memories:
         _user_memories[user_id] = ConversationBufferMemory(
             memory_key="chat_history", return_messages=True
