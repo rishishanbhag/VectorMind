@@ -1,5 +1,6 @@
 import re
 import secrets
+import threading
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status
@@ -19,27 +20,42 @@ def _guest_email(session_id: str) -> str:
     return f"guest-{session_id}@local"
 
 
+_guest_user_locks: dict[str, threading.Lock] = {}
+_guest_user_locks_guard = threading.Lock()
+
+
+def _guest_user_lock(email: str) -> threading.Lock:
+    with _guest_user_locks_guard:
+        lock = _guest_user_locks.get(email)
+        if lock is None:
+            lock = threading.Lock()
+            _guest_user_locks[email] = lock
+        return lock
+
+
 def get_or_create_guest_user(db: Session, session_id: str) -> User:
     email = _guest_email(session_id)
-    user = db.query(User).filter(User.email == email).first()
-    if user:
-        return user
-
-    user = User(
-        email=email,
-        hashed_password=secrets.token_hex(32),
-    )
-    db.add(user)
-    try:
-        db.commit()
-        db.refresh(user)
-        return user
-    except IntegrityError:
-        db.rollback()
+    with _guest_user_lock(email):
         user = db.query(User).filter(User.email == email).first()
         if user:
             return user
-        raise
+
+        user = User(
+            email=email,
+            hashed_password=secrets.token_hex(32),
+        )
+        db.add(user)
+        try:
+            db.commit()
+            db.refresh(user)
+            return user
+        except IntegrityError:
+            db.rollback()
+            db.expunge(user)
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                return user
+            raise
 
 
 def get_session_user(
