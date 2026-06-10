@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -20,7 +20,6 @@ settings = get_settings()
 @limiter.limit("5/minute")
 async def upload_pdfs(
     request: Request,
-    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     current_user: User = Depends(get_session_user),
 ):
@@ -62,13 +61,14 @@ async def upload_pdfs(
         file_data.append((content, file.filename))
 
     task_id = create_upload_task(current_user.id, len(files))
-    background_tasks.add_task(process_upload_task, task_id, current_user.id, file_data)
+    # Process synchronously — in-memory tasks are lost when Render restarts (OOM/redeploy),
+    # which caused 404 "Task not found" on status polling.
+    process_upload_task(task_id, current_user.id, file_data)
+    task = get_upload_task(task_id)
 
     return {
-        "task_id": task_id,
-        "status": "accepted",
-        "message": "Processing started",
-        "file_count": len(files),
+        **task,
+        "message": "Processing complete" if task["status"] == "completed" else "Processing failed",
     }
 
 

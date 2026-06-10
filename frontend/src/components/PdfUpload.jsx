@@ -76,9 +76,12 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
 
     try {
       const accepted = await uploadPdfs(files);
-      setProgress('Processing documents in background…');
+      setProgress('Processing documents…');
 
-      const result = await pollUploadUntilComplete(accepted.task_id);
+      const result =
+        accepted.status === 'completed' || accepted.status === 'failed'
+          ? accepted
+          : await pollUploadUntilComplete(accepted.task_id);
       setLastResult(result);
       setSelectedFiles([]);
       if (inputRef.current) inputRef.current.value = '';

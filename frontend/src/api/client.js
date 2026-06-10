@@ -65,6 +65,9 @@ export async function getUploadStatus(taskId) {
   const response = await fetch(`${API_BASE_URL}/upload/status/${taskId}`, {
     headers: sessionHeaders(),
   });
+  if (response.status === 404) {
+    throw new Error('Upload task lost — the server may have restarted. Please try uploading again.');
+  }
   return handleResponse(response);
 }
 
