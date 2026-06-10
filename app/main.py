@@ -38,7 +38,6 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
-        allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -53,16 +52,8 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup():
-        import os
-
         init_db()
         logger.info("app_started", cors=settings.cors_origin_list)
-
-        if os.getenv("RENDER") and "localhost" in settings.qdrant_url:
-            logger.error(
-                "qdrant_config_invalid",
-                detail="QDRANT_URL cannot use localhost on Render. Set your Qdrant Cloud URL.",
-            )
 
         if settings.qdrant_api_key and "cloud.qdrant.io" in settings.qdrant_url:
             try:

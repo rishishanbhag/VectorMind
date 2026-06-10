@@ -1,0 +1,15 @@
+# 1. Install backend dependencies
+pip install -r requirements.txt
+
+# 2. Create .env (copy from .env.example and fill in your keys)
+cp .env.example .env
+
+# 3. Start the backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 4. In a new terminal, install and start the frontend
+cd frontend
+npm install
+npm run dev
+
+# 5. Open http://localhost:5173

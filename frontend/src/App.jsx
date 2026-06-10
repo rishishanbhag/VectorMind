@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  API_BASE_URL,
   createConversation,
   getConversations,
   getStatus,
-  isApiConfigured,
 } from './api/client';
 import PdfUpload from './components/PdfUpload';
 import ChatInterface from './components/ChatInterface';
@@ -16,13 +14,7 @@ function BrandMark() {
 }
 
 function backendErrorHint() {
-  if (!isApiConfigured) {
-    return 'Set VITE_API_BASE_URL in Vercel → Environment Variables to your Render URL, then redeploy.';
-  }
-  if (import.meta.env.DEV) {
-    return 'Make sure the FastAPI backend is running on port 8000.';
-  }
-  return `API: ${API_BASE_URL}. If requests fail, check Render is live and CORS allows ${window.location.origin}.`;
+  return 'Make sure the FastAPI backend is running on port 8000.';
 }
 
 const STEPS = [
@@ -106,6 +98,10 @@ function App() {
             <p className="subtitle">
               Upload documents, build a searchable knowledge base, and get AI-powered answers
               grounded in your content.
+            </p>
+            <p className="local-notice">
+              This app runs locally on your machine and cannot be hosted online. Start both the
+              backend and frontend servers to begin — see run_locally.txt in the project root.
             </p>
           </section>
 

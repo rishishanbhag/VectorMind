@@ -16,6 +16,8 @@ __pycache__/
 
 *.py[cod]
 
+pytest-cache-files-*/
+
 
 
 # Generated vector store
