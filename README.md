@@ -1,8 +1,10 @@
-# PDF Chat
+#VectorMind
 
 **RAG-powered document Q&A** — upload PDFs, ask questions in natural language, and get answers grounded in your documents with source citations.
 
-This README is the full technical reference for the project: architecture, RAG pipeline, client/server flows, and interview talking points.
+Built with **React + FastAPI + Qdrant Cloud + Claude**. This app is designed to **run locally** on your machine (local embeddings require more RAM than free cloud tiers provide). See [`run_locally.txt`](run_locally.txt) for startup commands.
+
+This README is the full technical reference: architecture, RAG pipeline and client/server flow.
 
 ---
 
@@ -22,8 +24,7 @@ This README is the full technical reference for the project: architecture, RAG p
 12. [Data model](#data-model)
 13. [API reference](#api-reference)
 14. [Configuration](#configuration)
-15. [Testing and deployment](#testing-and-deployment)
-16. [Interview talking points](#interview-talking-points)
+15. [Testing](#testing)
 
 ---
 
@@ -35,12 +36,14 @@ PDF Chat is a **Retrieval-Augmented Generation (RAG)** application. Users upload
 
 **Key features:**
 
-- VentureScope-style landing page with drag-and-drop PDF upload
+- Landing page with drag-and-drop PDF upload
 - Per-browser session isolation (no login required)
 - Async background indexing with progress polling
 - Streaming chat responses (Server-Sent Events)
 - Source citations (filename, page, chunk preview)
-- Production middleware: CORS, rate limiting, structured logging, Prometheus metrics
+- CORS, rate limiting, structured logging, Prometheus metrics
+
+**Runs locally only** — not hosted online. The frontend shows a notice on the landing page; use `run_locally.txt` to start backend + frontend.
 
 ---
 
@@ -52,7 +55,7 @@ PDF Chat is a **Retrieval-Augmented Generation (RAG)** application. Users upload
 | **API server** | FastAPI + Uvicorn | REST + SSE endpoints (`app/main.py`) |
 | **LLM** | Anthropic Claude (`claude-sonnet-4-6`) | Answer generation via `langchain-anthropic` |
 | **Embeddings** | HuggingFace `all-MiniLM-L6-v2` (local, 384-dim) | Semantic vectors for chunks and queries |
-| **Vector DB** | Qdrant v1.12.5 | Per-user collections, cosine similarity search |
+| **Vector DB** | Qdrant Cloud | Per-user collections, cosine similarity search |
 | **Reranker** | CrossEncoder `ms-marco-MiniLM-L-6-v2` | Re-score top-20 vector hits down to top-5 |
 | **PDF parsing** | PyMuPDF + PyPDF2 fallback + Tesseract OCR | Text extraction from scanned pages |
 | **Chat history** | SQLite + SQLAlchemy | Persistent conversations and messages |
@@ -66,38 +69,41 @@ PDF Chat is a **Retrieval-Augmented Generation (RAG)** application. Users upload
 
 - Python 3.12+
 - Node.js 18+
-- Docker (for Qdrant)
+- [Anthropic API key](https://console.anthropic.com/)
+- [Qdrant Cloud](https://cloud.qdrant.io) cluster (free tier works)
 
-### 1. Install backend dependencies
+### Steps
+
+See [`run_locally.txt`](run_locally.txt) for copy-paste commands. Summary:
+
+**1. Install backend dependencies**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment
+**2. Configure environment**
 
-Create a `.env` file in the project root:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your keys:
 
 ```env
 ANTHROPIC_API_KEY=your_anthropic_api_key
-QDRANT_URL=http://localhost:6333
+QDRANT_URL=https://your-cluster-id.region.cloud.qdrant.io:6333
+QDRANT_API_KEY=your_qdrant_api_key
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
-### 3. Start Qdrant
-
-```bash
-docker compose up qdrant -d
-```
-
-### 4. Start the backend
+**3. Start the backend** (project root)
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The API entry point is **`app/main.py`** — there is no separate `fastapi_server.py`. Uvicorn loads the FastAPI `app` object directly.
-
-### 5. Start the frontend
+**4. Start the frontend** (new terminal)
 
 ```bash
 cd frontend
@@ -105,15 +111,13 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+**5. Open** http://localhost:5173
 
-### Full stack with Docker
+The API entry point is **`app/main.py`**. Uvicorn loads the FastAPI `app` object directly.
 
-```bash
-docker compose up --build -d
-```
+### Frontend env (optional)
 
-Runs Qdrant, backend (`:8000`), and frontend dev server (`:5173`).
+`frontend/.env` can set `VITE_API_BASE_URL=http://localhost:8000` — defaults to localhost if unset.
 
 ---
 
@@ -149,8 +153,8 @@ pdf_chat/
 │           └── StatusBadge.jsx
 ├── tests/                      # pytest suite
 ├── scripts/eval_rag.py         # Golden-set RAG evaluation
-├── Dockerfile                  # Backend production image
-├── docker-compose.yml          # Qdrant + backend + frontend
+├── run_locally.txt             # Commands to start the full app
+├── .env.example                # Environment variable template
 └── requirements.txt
 ```
 
@@ -238,7 +242,7 @@ flowchart TB
     end
 
     subgraph infra [Infrastructure]
-        QdrantDB["Qdrant :6333"]
+        QdrantDB["Qdrant Cloud"]
         SQLiteDB["pdf_chat.db"]
     end
 
@@ -274,7 +278,7 @@ flowchart TB
 |-----------|-------------|----------------|
 | React (Vite) | `:5173` | UI, session ID, API calls |
 | FastAPI | `:8000` | HTTP API, auth session, orchestration |
-| Qdrant | `:6333` | Vector storage per user (`pdf_chat_user_{id}`) |
+| Qdrant Cloud | HTTPS | Vector storage per user (`pdf_chat_user_{id}`) |
 | SQLite | `pdf_chat.db` | Users, conversations, messages |
 | Claude | HTTPS API | Text generation |
 
@@ -568,7 +572,8 @@ All settings in `app/config.py`, overridable via `.env`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | `""` | Required for Claude |
-| `QDRANT_URL` | `http://localhost:6333` | Qdrant server URL |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant URL (use Cloud URL with `:6333` for local dev) |
+| `QDRANT_API_KEY` | `""` | Required for Qdrant Cloud |
 | `QDRANT_COLLECTION_PREFIX` | `pdf_chat` | Collection name prefix |
 | `DATABASE_URL` | `sqlite:///./pdf_chat.db` | SQLAlchemy connection |
 | `CORS_ORIGINS` | `http://localhost:5173,...` | Allowed frontend origins |
@@ -581,15 +586,11 @@ All settings in `app/config.py`, overridable via `.env`:
 | `RERANK_TOP_K` | `5` | Chunks sent to Claude |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | HuggingFace model |
 | `RERANKER_MODEL` | `ms-marco-MiniLM-L-6-v2` | CrossEncoder model |
-| `MAX_FILE_SIZE_MB` | `50` | Per-file upload limit |
-| `MAX_TOTAL_UPLOAD_MB` | `200` | Total upload limit |
-| `ENABLE_OCR` | `true` | Tesseract fallback for scanned PDFs |
+
 
 ---
 
-## Testing and deployment
-
-### Run tests
+## Testing
 
 ```bash
 pytest tests/ -v
@@ -597,75 +598,11 @@ pytest tests/ -v
 
 Tests mock Qdrant and use an in-memory SQLite database. Session headers are sent via `X-Session-Id`.
 
-### CI
-
-GitHub Actions (`.github/workflows/ci.yml`) runs pytest with a Qdrant service container and builds the frontend.
-
-### Production Docker image
+Optional dev dependencies:
 
 ```bash
-docker build -t pdf-chat-backend .
-docker run -p 8000:8000 --env-file .env pdf-chat-backend
+pip install -r requirements-dev.txt
 ```
-
-The `Dockerfile` installs Tesseract for OCR, copies `app/`, and starts `uvicorn app.main:app`.
-
----
-
-## Interview talking points
-
-### Why RAG instead of fine-tuning?
-
-- Documents change frequently — RAG updates knowledge by uploading new PDFs, no retraining
-- Answers are **grounded** in retrieved sources, reducing hallucination
-- Works with private data without sending documents to train a model
-- Fine-tuning is expensive, slow, and does not cite sources
-
-### Why Qdrant instead of FAISS / pickle files?
-
-- **Per-user collections** — true multi-tenant isolation (`pdf_chat_user_{id}`)
-- Dedicated vector DB with stable API, persistence, and scaling path
-- No pickle corruption or version mismatch on reload
-- Docker-ready for production
-
-### Why rerank after vector search?
-
-- Bi-encoder embeddings (MiniLM) are fast but lose nuance — good for recall (top-20)
-- Cross-encoder sees query + document together — better precision for the final top-5
-- Standard production pattern: cheap retrieval, expensive reranking on a small set
-
-### Why local embeddings vs API embeddings?
-
-- **Zero per-query embedding cost** for ingestion and search
-- No network latency for embedding calls
-- `all-MiniLM-L6-v2` is small, fast, and well-suited for semantic similarity at 384 dimensions
-
-### Why async upload (202 + polling)?
-
-- PDF parsing, OCR, chunking, and embedding can take seconds to minutes
-- HTTP request would timeout if done synchronously
-- Client polls `/upload/status/{task_id}` and shows progress
-
-### Why SSE for chat streaming?
-
-- Simpler than WebSockets for one-directional server → client token flow
-- Works through standard HTTP proxies and load balancers
-- FastAPI `StreamingResponse` with `text/event-stream` integrates cleanly with `fetch` + `ReadableStream`
-
-### Session-based auth tradeoffs
-
-- **Pro:** Zero friction for demos — no signup flow
-- **Pro:** Per-browser isolation without building login UI
-- **Con:** Not secure for production — session UUID is the only credential
-- **Con:** Clearing `localStorage` creates a new empty user; old Qdrant data is orphaned
-
-### How would you scale this?
-
-- Replace in-memory `upload_tasks` with Redis or a job queue (Celery, ARQ)
-- Move SQLite to PostgreSQL for concurrent writes
-- Add proper auth (OAuth, API keys) for production
-- Horizontal scale: stateless FastAPI replicas + shared Qdrant + shared DB
-- Cache embedding model in a shared inference service if memory per replica is a concern
 
 ---
 
