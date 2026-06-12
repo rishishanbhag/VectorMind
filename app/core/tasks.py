@@ -21,7 +21,9 @@ def create_upload_task(user_id: int, file_count: int) -> str:
         "task_id": task_id,
         "user_id": user_id,
         "status": "pending",
+        "stage": "queued",
         "file_count": file_count,
+        "files_done": 0,
         "chunks_created": 0,
         "text_length": 0,
         "error": None,
@@ -42,24 +44,34 @@ def process_upload_task(task_id: str, user_id: int, files: List[tuple]):
         return
 
     task["status"] = "processing"
+    task["stage"] = "parsing"
+
+    def on_stage(stage: str) -> None:
+        task["stage"] = stage
+
     try:
         all_documents: List[Document] = []
         total_text = 0
 
-        for content, filename in files:
+        for i, (content, filename) in enumerate(files):
+            task["stage"] = "parsing"
+            task["files_done"] = i
             pdf_file = BytesIO(content)
             pdf_file.name = filename
             pages = extract_pdf_pages(pdf_file, filename)
             total_text += sum(len(p[0]) for p in pages)
+            task["stage"] = "chunking"
             docs = chunk_documents(pages, filename)
             all_documents.extend(docs)
+            task["files_done"] = i + 1
 
         if not all_documents:
             raise ValueError("No text could be extracted from the PDFs")
 
-        chunks_created = index_documents(user_id, all_documents)
+        chunks_created = index_documents(user_id, all_documents, on_stage=on_stage)
 
         task["status"] = "completed"
+        task["stage"] = "complete"
         task["chunks_created"] = chunks_created
         task["text_length"] = total_text
         task["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -68,5 +80,6 @@ def process_upload_task(task_id: str, user_id: int, files: List[tuple]):
     except Exception as e:
         logger.error("Upload task %s failed: %s", task_id, e)
         task["status"] = "failed"
+        task["stage"] = "failed"
         task["error"] = str(e)
         task["completed_at"] = datetime.now(timezone.utc).isoformat()

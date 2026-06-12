@@ -257,9 +257,9 @@ async def ask_question_stream(
     yield f"data: {json.dumps({'done': True, 'sources': sources})}\n\n"
 
 
-def index_documents(user_id: int, documents: List[Document]) -> int:
+def index_documents(user_id: int, documents: List[Document], on_stage=None) -> int:
     store = get_vectorstore(user_id)
-    count = store.add_documents(documents)
+    count = store.add_documents(documents, on_stage=on_stage)
     if settings.low_memory_mode:
         unload_embedding_model()
     return count

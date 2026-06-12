@@ -55,9 +55,13 @@ export async function getUploadStatus(taskId) {
   return handleResponse(response);
 }
 
-export async function pollUploadUntilComplete(taskId, { intervalMs = 2000, maxAttempts = 120 } = {}) {
+export async function pollUploadUntilComplete(
+  taskId,
+  { intervalMs = 750, maxAttempts = 120, onStatus } = {},
+) {
   for (let i = 0; i < maxAttempts; i += 1) {
     const status = await getUploadStatus(taskId);
+    onStatus?.(status);
     if (status.status === 'completed' || status.status === 'failed') {
       return status;
     }

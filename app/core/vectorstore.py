@@ -109,12 +109,15 @@ class QdrantVectorStore:
 
         _retry_qdrant(_ensure, "ensure_collection")
 
-    def add_documents(self, documents: List[Document]) -> int:
+    def add_documents(self, documents: List[Document], on_stage=None) -> int:
         if not documents:
             return 0
 
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
+
+        if on_stage:
+            on_stage("embedding")
         vectors = self.embeddings.embed_documents(texts)
 
         points = [
@@ -125,6 +128,9 @@ class QdrantVectorStore:
             )
             for text, meta, vector in zip(texts, metadatas, vectors)
         ]
+
+        if on_stage:
+            on_stage("storing")
 
         def _upsert():
             self.client.upsert(collection_name=self.collection_name, points=points)

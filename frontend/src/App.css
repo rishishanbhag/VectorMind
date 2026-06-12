@@ -811,3 +811,256 @@
     max-width: 92%;
   }
 }
+
+/* ── RAG Flow Overlay ───────────────────────────────────── */
+
+.rag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: rag-overlay-in 0.3s ease;
+}
+
+.rag-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.rag-overlay-panel {
+  position: relative;
+  width: min(920px, 100%);
+  padding: 2rem 2rem 1.75rem;
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.rag-overlay-panel--failed {
+  border-color: #fecaca;
+}
+
+.rag-overlay-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.rag-overlay-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+}
+
+.rag-flow-diagram {
+  margin: 0 auto 1rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.rag-flow-svg {
+  width: 100%;
+  height: auto;
+  min-width: 640px;
+}
+
+.rag-node-shape {
+  fill: #e6f4fe;
+  stroke: #111;
+  stroke-width: 1.5;
+  transition: fill 0.35s ease, stroke 0.35s ease, filter 0.35s ease;
+}
+
+.rag-node--active .rag-node-shape {
+  fill: #bae6fd;
+  stroke: #2563eb;
+  animation: rag-node-pulse 1.4s ease-in-out infinite;
+}
+
+.rag-node--done .rag-node-shape {
+  fill: var(--emerald-100);
+  stroke: var(--emerald-700);
+}
+
+.rag-node--failed .rag-node-shape {
+  fill: var(--red-50);
+  stroke: var(--red-600);
+  animation: rag-node-pulse 1s ease-in-out infinite;
+}
+
+.rag-node--pending .rag-node-shape {
+  fill: #f3f4f6;
+  stroke: #d1d5db;
+}
+
+.rag-node-label {
+  fill: #111;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.rag-node-label--sm {
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.rag-node-sublabel {
+  fill: #374151;
+  font-size: 9px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.rag-node-meta {
+  fill: #6b7280;
+  font-size: 8px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.rag-node-check {
+  fill: var(--emerald-700);
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.rag-node--chunk.rag-node--lit .rag-node-shape {
+  fill: #bae6fd;
+  stroke: #2563eb;
+}
+
+.rag-node--chunk.rag-node--active .rag-node-shape {
+  animation: rag-chunk-pop 0.5s ease forwards;
+}
+
+.rag-cylinder-top,
+.rag-cylinder-bottom {
+  fill: #dbeafe;
+}
+
+.rag-cylinder-body {
+  fill: #e6f4fe;
+}
+
+.rag-vector-dot {
+  fill: #93c5fd;
+  stroke: #2563eb;
+  stroke-width: 0.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.rag-vector-dot--visible {
+  animation: rag-dot-pop 0.35s ease forwards;
+}
+
+.rag-connector {
+  stroke: #d1d5db;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.rag-connector--active {
+  stroke: #2563eb;
+  stroke-dasharray: 6 4;
+  animation: rag-dash-flow 0.8s linear infinite;
+}
+
+.rag-connector--done {
+  stroke: var(--emerald-600);
+  stroke-width: 2;
+}
+
+.rag-overlay-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text-body);
+  min-height: 1.5rem;
+}
+
+.rag-overlay-status--error {
+  color: var(--red-600);
+}
+
+.rag-overlay-close {
+  margin-top: 1rem;
+}
+
+@keyframes rag-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rag-node-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(37, 99, 235, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.55));
+  }
+}
+
+@keyframes rag-dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes rag-chunk-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes rag-dot-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 700px) {
+  .rag-overlay-panel {
+    padding: 1.25rem 1rem 1rem;
+  }
+
+  .rag-overlay-title {
+    font-size: 1.1rem;
+  }
+
+  .rag-flow-svg {
+    min-width: 520px;
+  }
+}

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { pollUploadUntilComplete, uploadPdfs } from '../api/client';
+import RagFlowOverlay from './RagFlowOverlay';
 
 function filterPdfFiles(fileList) {
   return Array.from(fileList || []).filter(
@@ -12,17 +13,32 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState(null);
   const [error, setError] = useState(null);
   const [lastResult, setLastResult] = useState(null);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [pipelineStage, setPipelineStage] = useState('uploading');
+  const [overlayFiles, setOverlayFiles] = useState([]);
+  const [filesDone, setFilesDone] = useState(0);
+  const [fileCount, setFileCount] = useState(0);
+  const [overlayResult, setOverlayResult] = useState(null);
+  const [overlayError, setOverlayError] = useState(null);
 
   const isHero = variant === 'hero';
+
+  const resetOverlay = () => {
+    setOverlayOpen(false);
+    setPipelineStage('uploading');
+    setOverlayFiles([]);
+    setFilesDone(0);
+    setFileCount(0);
+    setOverlayResult(null);
+    setOverlayError(null);
+  };
 
   const setFiles = (files) => {
     setSelectedFiles(files);
     setError(null);
     setLastResult(null);
-    setProgress(null);
   };
 
   const handleFileChange = (event) => {
@@ -72,13 +88,29 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
 
     setUploading(true);
     setError(null);
-    setProgress('Uploading files…');
+    setOverlayOpen(true);
+    setPipelineStage('uploading');
+    setOverlayFiles(files);
+    setFilesDone(0);
+    setFileCount(files.length);
+    setOverlayResult(null);
+    setOverlayError(null);
 
     try {
       const accepted = await uploadPdfs(files);
-      setProgress('Processing documents…');
+      setFileCount(accepted.file_count || files.length);
+      setPipelineStage('parsing');
 
-      const result = await pollUploadUntilComplete(accepted.task_id);
+      const result = await pollUploadUntilComplete(accepted.task_id, {
+        onStatus: (status) => {
+          if (status.stage) {
+            setPipelineStage(status.stage === 'queued' ? 'parsing' : status.stage);
+          }
+          if (status.files_done != null) setFilesDone(status.files_done);
+          if (status.file_count != null) setFileCount(status.file_count);
+        },
+      });
+
       setLastResult(result);
       setSelectedFiles([]);
       if (inputRef.current) inputRef.current.value = '';
@@ -87,12 +119,14 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
         throw new Error(result.error || 'Processing failed');
       }
 
-      onUploadComplete?.(result);
+      setPipelineStage('complete');
+      setOverlayResult(result);
     } catch (err) {
       setError(err.message);
+      setOverlayError(err.message);
+      setPipelineStage('failed');
     } finally {
       setUploading(false);
-      setProgress(null);
     }
   };
 
@@ -103,72 +137,86 @@ export default function PdfUpload({ onUploadComplete, disabled, variant = 'sideb
       : 'Choose PDF files';
 
   return (
-    <div className={`upload-panel ${isHero ? 'upload-panel-hero' : ''}`}>
-      {!isHero && (
-        <>
-          <h2>Upload PDFs</h2>
-          <p className="panel-desc">Add documents to build your knowledge base (max 50MB per file).</p>
-        </>
-      )}
+    <>
+      <div className={`upload-panel ${isHero ? 'upload-panel-hero' : ''}`}>
+        {!isHero && (
+          <>
+            <h2>Upload PDFs</h2>
+            <p className="panel-desc">Add documents to build your knowledge base (max 50MB per file).</p>
+          </>
+        )}
 
-      <label
-        className={`file-drop ${isHero ? 'file-drop-hero' : ''} ${dragging ? 'dragging' : ''}`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="application/pdf"
-          multiple
-          onChange={handleFileChange}
-          disabled={disabled || uploading}
-        />
-        <span className="file-drop-label">{dropLabel}</span>
-        {isHero && <span className="file-drop-hint">PDF only · up to 50MB per file</span>}
-      </label>
-
-      {selectedFiles.length > 0 && !isHero && (
-        <ul className="file-list">
-          {selectedFiles.map((file) => (
-            <li key={file.name}>{file.name}</li>
-          ))}
-        </ul>
-      )}
-
-      {!isHero && (
-        <button
-          type="button"
-          className="btn primary"
-          onClick={() => handleUpload()}
-          disabled={disabled || uploading || !selectedFiles.length}
+        <label
+          className={`file-drop ${isHero ? 'file-drop-hero' : ''} ${dragging ? 'dragging' : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
-          {uploading ? 'Processing…' : 'Process Documents'}
-        </button>
-      )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            onChange={handleFileChange}
+            disabled={disabled || uploading}
+          />
+          <span className="file-drop-label">{dropLabel}</span>
+          {isHero && <span className="file-drop-hint">PDF only · up to 50MB per file</span>}
+        </label>
 
-      {isHero && selectedFiles.length > 0 && !uploading && (
-        <button
-          type="button"
-          className="btn primary hero-upload-btn"
-          onClick={() => handleUpload()}
-          disabled={disabled || uploading}
-        >
-          Process {selectedFiles.length} file(s)
-        </button>
-      )}
+        {selectedFiles.length > 0 && !isHero && (
+          <ul className="file-list">
+            {selectedFiles.map((file) => (
+              <li key={file.name}>{file.name}</li>
+            ))}
+          </ul>
+        )}
 
-      {(uploading || progress) && isHero && (
-        <p className="message info hero-progress">{progress || 'Processing…'}</p>
-      )}
-      {!isHero && progress && <p className="message info">{progress}</p>}
-      {error && <p className="message error">{error}</p>}
-      {lastResult?.status === 'completed' && !isHero && (
-        <p className="message success">
-          Processed {lastResult.file_count} file(s), {lastResult.chunks_created} chunks created.
-        </p>
-      )}
-    </div>
+        {!isHero && (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => handleUpload()}
+            disabled={disabled || uploading || !selectedFiles.length}
+          >
+            {uploading ? 'Processing…' : 'Process Documents'}
+          </button>
+        )}
+
+        {isHero && selectedFiles.length > 0 && !uploading && (
+          <button
+            type="button"
+            className="btn primary hero-upload-btn"
+            onClick={() => handleUpload()}
+            disabled={disabled || uploading}
+          >
+            Process {selectedFiles.length} file(s)
+          </button>
+        )}
+
+        {error && !overlayOpen && <p className="message error">{error}</p>}
+        {lastResult?.status === 'completed' && !isHero && !overlayOpen && (
+          <p className="message success">
+            Processed {lastResult.file_count} file(s), {lastResult.chunks_created} chunks created.
+          </p>
+        )}
+      </div>
+
+      <RagFlowOverlay
+        open={overlayOpen}
+        stage={pipelineStage}
+        files={overlayFiles}
+        filesDone={filesDone}
+        fileCount={fileCount}
+        result={overlayResult}
+        error={overlayError}
+        onClose={resetOverlay}
+        onDismiss={() => {
+          const completed = overlayResult;
+          resetOverlay();
+          if (completed) onUploadComplete?.(completed);
+        }}
+      />
+    </>
   );
 }
