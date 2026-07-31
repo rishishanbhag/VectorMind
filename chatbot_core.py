@@ -10,8 +10,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
-from langchain_google_genai import ChatGoogleGenerativeAI
-import google.generativeai as genai
+from langchain_anthropic import ChatAnthropic
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,11 +22,11 @@ load_dotenv()
 class PDFChatbot:
     def __init__(self):
         """Initialize the PDF chatbot with configuration"""
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
-        if not self.google_api_key:
-            raise ValueError("GOOGLE_API_KEY not found in environment variables")
-        
-        genai.configure(api_key=self.google_api_key)
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not self.anthropic_api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+
+        self.claude_model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         self.conversation_chain = None
         self.vectorstore = None
         self.vectorstore_file = 'vectorstore.pkl'
@@ -103,16 +102,15 @@ class PDFChatbot:
             return None
     
     def create_conversation_chain(self, vectorstore: Optional[FAISS] = None) -> ConversationalRetrievalChain:
-        """Create conversation chain with Gemini"""
+        """Create conversation chain with Claude"""
         store_to_use = vectorstore or self.vectorstore
         if store_to_use is None:
             raise ValueError("No vectorstore available for conversation chain")
         
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+        llm = ChatAnthropic(
+            model=self.claude_model,
             temperature=0.2,
-            google_api_key=self.google_api_key,
-            convert_system_message_to_human=True
+            anthropic_api_key=self.anthropic_api_key,
         )
         
         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -234,7 +232,7 @@ class PDFChatbot:
             "vectorstore_loaded": self.vectorstore is not None,
             "conversation_chain_initialized": self.conversation_chain is not None,
             "vectorstore_file_exists": os.path.exists(self.vectorstore_file),
-            "google_api_configured": bool(self.google_api_key)
+            "anthropic_api_configured": bool(self.anthropic_api_key)
         }
 
 # Global instance for easy access
