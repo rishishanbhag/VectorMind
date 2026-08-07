@@ -6,3 +6,4 @@ langchain-community==0.3.24
 langchain-anthropic==0.3.22
 faiss-cpu==1.11.0
 sentence-transformers==3.4.1
+neo4j==5.28.1
