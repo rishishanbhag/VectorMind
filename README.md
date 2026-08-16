@@ -1,26 +1,44 @@
 # VectorMind
 
-VectorMind is a hybrid GraphRAG chatbot: upload PDFs, ask questions in natural language, and get answers grounded in your documents. It combines **document-aware** parent-child FAISS retrieval, a Document Registry, Neo4j Aura for candidate discovery + graph facts, CrossEncoder reranking, and Claude with citations plus a mode-aware faithfulness check.
+VectorMind is a hybrid GraphRAG PDF Q&A system. Upload PDFs and it builds per-document registries (adaptive summaries, topics, keywords), a Neo4j knowledge graph of extracted entities and relations, and a FAISS child-level vector index. Retrieval is document-aware: a heuristic router selects lookup, synthesis, or cross-document modes; FAISS overfetch + CrossEncoder reranking finds precise excerpts; an LLM (Anthropic/Claude) generates structured, citation-backed answers with a mode-aware faithfulness check.
 
 **Live app:** [vectormind.streamlit.app](https://vectormind.streamlit.app)
 
-## How it works
+## Overview
 
-1. Upload one or more PDFs and click **Process Documents**.
-2. Each PDF is ingested **separately** with a `doc_id`. Text is split into **parent** (~2000 chars) and **child** (~400 chars) chunks. Children are embedded into FAISS with `doc_id` metadata.
-3. Claude builds an **adaptive document summary** from parent chunks (one call per doc: full text if small, representative sampled parents if large), extracts entities into **Neo4j Aura**, and stores a **Document Registry** (summary, topics, entities, keywords, chunk counts).
-4. On a question, a heuristic **router** chooses:
-   - **Lookup:** Neo4j/registry candidate docs → FAISS over-fetch → CrossEncoder rerank → parent expansion → graph facts → Claude.
-   - **Synthesis** (e.g. “each PDF”, “compare all”): Stage 1 candidate docs from registry/Neo4j → Stage 2 best parent per candidate + summaries → token-budgeted Claude answer (no map-reduce).
-5. Answers are structured markdown with document-name citations. A faithfulness check is **mode-aware** (summaries count as grounding for synthesis).
+- Per-document ingestion with parent (~2000 chars) and child (~400 chars) chunking.
+- Adaptive, one-call document summaries used for routing and synthesis.
+- Neo4j Aura knowledge graph storing `Document`, `Chunk`, and `Entity` nodes plus extracted relations.
+- FAISS child-vector index (HuggingFace embeddings) with CrossEncoder reranking for high-precision excerpt selection.
+- Retrieval modes: `lookup` (grounded excerpts + graph facts), `synthesis` (document summaries + best parents), and `cross_doc` (shared concepts across documents).
+- Mode-aware faithfulness checks and a constrained regenerate flow for weaker-grounded synthesis/cross-doc answers.
+- Index persistence: local `vectorstore.pkl` for FAISS + registry; Neo4j Aura persists the knowledge graph.
+
+## How it works (brief)
+
+1. Ingest: upload PDFs → extract text → split into parents and children (per-document) → extract triples and entities via the LLM → write entities/chunks to Neo4j and registry.
+2. Index: child chunks are embedded and stored in FAISS; registry stores summaries, topics, keywords, and chunk counts per document.
+3. Retrieve: a lightweight router chooses `lookup`, `synthesis`, or `cross_doc`. FAISS overfetches candidate children, a CrossEncoder reranker refines hits, and Neo4j provides graph neighborhood facts.
+4. Answer: the LLM (Anthropic/Claude via LangChain) generates structured markdown answers with citations; a faithfulness-check step verifies grounding and may trigger constrained regeneration.
+
+## Models & libraries
+
+- LLM: Anthropic/Claude (via `langchain_anthropic`)
+- Embeddings: HuggingFace `sentence-transformers/all-MiniLM-L6-v2` (via `langchain_community.embeddings`)
+- Reranker: `cross-encoder/ms-marco-MiniLM-L-6-v2` (via `sentence_transformers.CrossEncoder`)
+- Vector DB: FAISS (via `langchain_community.vectorstores`)
+- Graph DB: Neo4j Aura (`neo4j` Python driver)
+- PDF parsing: `PyPDF2`
 
 ## Run locally
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root with these keys (examples):
 
 ```env
 ANTHROPIC_API_KEY=your_anthropic_api_key
@@ -44,8 +62,6 @@ NEO4J_PASSWORD=your_aura_password
 # INDEX_FILE=vectorstore.pkl
 ```
 
-Create a free Neo4j AuraDB instance at [console.neo4j.io](https://console.neo4j.io), then copy the connection URI and password into `.env`.
-
 Start the app:
 
 ```bash
@@ -56,27 +72,23 @@ streamlit run app.py
 
 1. Push this repo to GitHub.
 2. Create a new app at [share.streamlit.io](https://share.streamlit.io) pointing at this repo, branch `main`, main file `app.py`, Python version **3.12**.
-3. In the app's **Settings → Secrets**, add:
+3. In the app's **Settings → Secrets**, add the same keys from `.env`.
 
-```toml
-ANTHROPIC_API_KEY = "your_anthropic_api_key"
-CLAUDE_MODEL = "claude-sonnet-4-6"
-NEO4J_URI = "neo4j+s://xxxx.databases.neo4j.io"
-NEO4J_USERNAME = "neo4j"
-NEO4J_PASSWORD = "your_aura_password"
-```
+## Persistence & limitations
 
-**Persistence notes:**
-- The knowledge graph lives in Neo4j Aura and persists across app restarts.
-- The FAISS index + Document Registry are in-memory / local pickle on the Streamlit host and do **not** persist across restarts — re-upload PDFs after a restart.
-- Re-processing documents clears and rebuilds the Aura graph for a clean index.
+- Neo4j Aura persists the knowledge graph across restarts; the FAISS index and in-repo registry are saved locally to `vectorstore.pkl` and must be reloaded on startup (or re-processed if missing).
+- Summaries and shared-concept lists are model-derived and therefore weaker grounding than direct context excerpts — the faithfulness check aims to surface these risks. When in doubt, inspect `Sources` and `Document summaries` in the UI.
+
+## Architecture (short)
+
+Ingest → parent/child chunking → entity extraction → Neo4j registry + FAISS index → router → FAISS overfetch → CrossEncoder rerank → LLM answer + faithfulness check.
 
 ## Project structure
 
 | File | Purpose |
 |---|---|
-| `app.py` | Streamlit UI: upload, chat, persisted answer, route/sources/summaries |
-| `chatbot_core.py` | Document-aware hybrid GraphRAG pipeline |
+| `app.py` | Streamlit UI: upload, chat, render sources/summaries/graph facts |
+| `chatbot_core.py` | Document-aware hybrid GraphRAG pipeline and Neo4j/FAISS integration |
 | `requirements.txt` | Python dependencies |
 
 ## License
